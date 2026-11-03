@@ -1,0 +1,256 @@
+% ORE HAULAGE - MINIMIZE TRANSPORT COST
+% an open pit mine transports ore from two minig locations, A and B, to a
+% central processing plant using two haulage routes. the transportation
+% cost per tonne from A through route 1 is $4, while route 2 costs $6 per
+% tonne. For location B, route 1 costs $5 per tonne, while route 2 costs $3
+% per tonne. Location A must supply 600 tonnes, while B must supply 500
+% tonnes. Route 1 can accommodate a maximum of 700 tonnes and 2, 500
+% tonnes. Determine how much material should be transported along each
+% route to minimize the total transportation cost.
+
+% Variables: x(1) = tonnes from A via Route 1   
+%            x(2) = tonnes from A via Route 2   
+%            x(3) = tonnes from B via Route 1   
+%            x(4) = tonnes from B via Route 2   
+% Minimize 4*x1 + 6*x2 + 5*x3 + 3*x4
+% Constraints:  x1 + x2 = 600      (Location A must supply 600 t)
+%               x3 + x4 = 400      (Location B must supply 400 t)
+%               x1 + x3 <= 700     (Route 1 capacity)
+%               x2 + x4 <= 500     (Route 2 capacity)
+%               x >= 0
+
+
+
+% 1. FMINCON  
+% Problem data
+x0 = [300, 300, 200, 200];      % starting point 
+lb = [0, 0, 0, 0];              % lower bounds
+ub = [600, 600, 400, 400];      % upper bounds (no route can carry more than the supply)
+% Linear inequality constraints  A*x <= b  (route capacities)
+A = [1 0 1 0;                   % Route 1: x1 + x3 <= 700
+     0 1 0 1];                  % Route 2: x2 + x4 <= 500
+b = [700; 500];
+% Linear equality constraints  Aeq*x = beq  (supply requirements)
+Aeq = [1 1 0 0;                 % x1 + x2 = 600
+       0 0 1 1];                % x3 + x4 = 400
+beq = [600; 400];
+fun = @(x) 4*x(1) + 6*x(2) + 5*x(3) + 3*x(4);
+objective = fun;
+nvars = 4;
+% Optimization settings
+options = optimoptions('fmincon','Display','off','Algorithm','sqp');
+% Run optimization
+tic;
+[xopt,fval] = fmincon(objective,x0,A,b,Aeq,beq,lb,ub,[],options);
+t_fmincon = toc;
+% Display results
+fprintf('--- fmincon ---\n');
+fprintf('A via Route 1 = %.4f t\n',xopt(1));
+fprintf('A via Route 2 = %.4f t\n',xopt(2));
+fprintf('B via Route 1 = %.4f t\n',xopt(3));
+fprintf('B via Route 2 = %.4f t\n',xopt(4));
+fprintf('Route 1 load = %.4f t,  Route 2 load = %.4f t\n',xopt(1)+xopt(3),xopt(2)+xopt(4));
+fprintf('Minimum transport cost = $%.2f\n',fval);
+fprintf('Time = %.4f s\n\n',t_fmincon);
+res.fmincon = fval;
+
+%% 2. GA  
+rng(1);                                 
+% Problem data
+x0 = [300, 300, 200, 200];      % starting point 
+lb = [0, 0, 0, 0];              % lower bounds
+ub = [600, 600, 400, 400];      % upper bounds (no route can carry more than the supply)
+% Linear inequality constraints  A*x <= b  (route capacities)
+A = [1 0 1 0;                   % Route 1: x1 + x3 <= 700
+     0 1 0 1];                  % Route 2: x2 + x4 <= 500
+b = [700; 500];
+% Linear equality constraints  Aeq*x = beq  (supply requirements)
+Aeq = [1 1 0 0;                 % x1 + x2 = 600
+       0 0 1 1];                % x3 + x4 = 400
+beq = [600; 400];
+fun = @(x) 4*x(1) + 6*x(2) + 5*x(3) + 3*x(4);
+objective = fun;
+nvars = 4;
+% Optimization settings
+options = optimoptions('ga','Display','off');
+% Run optimization
+tic;
+[xopt,fval] = ga(objective,nvars,A,b,Aeq,beq,lb,ub,[],options);
+t_ga = toc;
+% Display results
+fprintf('--- ga ---\n');
+fprintf('A via Route 1 = %.4f t\n',xopt(1));
+fprintf('A via Route 2 = %.4f t\n',xopt(2));
+fprintf('B via Route 1 = %.4f t\n',xopt(3));
+fprintf('B via Route 2 = %.4f t\n',xopt(4));
+fprintf('Route 1 load = %.4f t,  Route 2 load = %.4f t\n',xopt(1)+xopt(3),xopt(2)+xopt(4));
+fprintf('Minimum transport cost = $%.2f\n',fval);
+fprintf('Time = %.4f s\n\n',t_ga);
+res.ga = fval;
+
+% 3. PARTICLESWARM 
+rng(1);                                 
+% Problem data
+x0 = [300, 300, 200, 200];      % starting point 
+lb = [0, 0, 0, 0];              % lower bounds
+ub = [600, 600, 400, 400];      % upper bounds (no route can carry more than the supply)
+% Linear inequality constraints  A*x <= b  (route capacities)
+A = [1 0 1 0;                   % Route 1: x1 + x3 <= 700
+     0 1 0 1];                  % Route 2: x2 + x4 <= 500
+b = [700; 500];
+% Linear equality constraints  Aeq*x = beq  (supply requirements)
+Aeq = [1 1 0 0;                 % x1 + x2 = 600
+       0 0 1 1];                % x3 + x4 = 400
+beq = [600; 400];
+fun = @(x) 4*x(1) + 6*x(2) + 5*x(3) + 3*x(4);
+% Constraints are added to the objective as a penalty (weight 1e3)
+objective = @(x) fun(x) + 1e3*(sum(max(A*x(:)-b,0)) + sum(abs(Aeq*x(:)-beq)));
+nvars = 4;
+% Optimization settings
+options = optimoptions('particleswarm','Display','off');
+% Run optimization
+tic;
+[xopt,fval] = particleswarm(objective,nvars,lb,ub,options);
+t_particleswarm = toc;
+% Display results
+fval = fun(xopt);          % true objective, without the penalty
+fprintf('--- particleswarm ---\n');
+fprintf('A via Route 1 = %.4f t\n',xopt(1));
+fprintf('A via Route 2 = %.4f t\n',xopt(2));
+fprintf('B via Route 1 = %.4f t\n',xopt(3));
+fprintf('B via Route 2 = %.4f t\n',xopt(4));
+fprintf('Route 1 load = %.4f t,  Route 2 load = %.4f t\n',xopt(1)+xopt(3),xopt(2)+xopt(4));
+fprintf('Minimum transport cost = $%.2f\n',fval);
+fprintf('Max constraint violation = %.2e\n',max([0; A*xopt(:)-b; abs(Aeq*xopt(:)-beq)]));
+fprintf('Time = %.4f s\n\n',t_particleswarm);
+res.particleswarm = fval;
+
+% 4. PATTERNSEARCH  
+% Problem data
+x0 = [300, 300, 200, 200];      % starting point
+lb = [0, 0, 0, 0];              % lower bounds
+ub = [600, 600, 400, 400];      % upper bounds (no route can carry more than the supply)
+% Linear inequality constraints  A*x <= b  (route capacities)
+A = [1 0 1 0;                   % Route 1: x1 + x3 <= 700
+     0 1 0 1];                  % Route 2: x2 + x4 <= 500
+b = [700; 500];
+% Linear equality constraints  Aeq*x = beq  (supply requirements)
+Aeq = [1 1 0 0;                 % x1 + x2 = 600
+       0 0 1 1];                % x3 + x4 = 400
+beq = [600; 400];
+fun = @(x) 4*x(1) + 6*x(2) + 5*x(3) + 3*x(4);
+objective = fun;
+nvars = 4;
+% Optimization settings
+options = optimoptions('patternsearch','Display','off');
+% Run optimization
+tic;
+[xopt,fval] = patternsearch(objective,x0,A,b,Aeq,beq,lb,ub,[],options);
+t_patternsearch = toc;
+% Display results
+fprintf('--- patternsearch ---\n');
+fprintf('A via Route 1 = %.4f t\n',xopt(1));
+fprintf('A via Route 2 = %.4f t\n',xopt(2));
+fprintf('B via Route 1 = %.4f t\n',xopt(3));
+fprintf('B via Route 2 = %.4f t\n',xopt(4));
+fprintf('Route 1 load = %.4f t,  Route 2 load = %.4f t\n',xopt(1)+xopt(3),xopt(2)+xopt(4));
+fprintf('Minimum transport cost = $%.2f\n',fval);
+fprintf('Time = %.4f s\n\n',t_patternsearch);
+res.patternsearch = fval;
+
+% 5. SURROGATEOPT 
+rng(1);                                 
+% Problem data
+x0 = [300, 300, 200, 200];      % starting point 
+lb = [0, 0, 0, 0];              % lower bounds
+ub = [600, 600, 400, 400];      % upper bounds (no route can carry more than the supply)
+% Linear inequality constraints  A*x <= b  (route capacities)
+A = [1 0 1 0;                   % Route 1: x1 + x3 <= 700
+     0 1 0 1];                  % Route 2: x2 + x4 <= 500
+b = [700; 500];
+% Linear equality constraints  Aeq*x = beq  (supply requirements)
+Aeq = [1 1 0 0;                 % x1 + x2 = 600
+       0 0 1 1];                % x3 + x4 = 400
+beq = [600; 400];
+fun = @(x) 4*x(1) + 6*x(2) + 5*x(3) + 3*x(4);
+objective = fun;
+nvars = 4;
+% Optimization settings
+options = optimoptions('surrogateopt','Display','off','PlotFcn',[]);
+% Run optimization
+tic;
+[xopt,fval] = surrogateopt(objective,lb,ub,[],A,b,Aeq,beq,options);
+t_surrogateopt = toc;
+% Display results
+fprintf('--- surrogateopt ---\n');
+fprintf('A via Route 1 = %.4f t\n',xopt(1));
+fprintf('A via Route 2 = %.4f t\n',xopt(2));
+fprintf('B via Route 1 = %.4f t\n',xopt(3));
+fprintf('B via Route 2 = %.4f t\n',xopt(4));
+fprintf('Route 1 load = %.4f t,  Route 2 load = %.4f t\n',xopt(1)+xopt(3),xopt(2)+xopt(4));
+fprintf('Minimum transport cost = $%.2f\n',fval);
+fprintf('Time = %.4f s\n\n',t_surrogateopt);
+res.surrogateopt = fval;
+
+% 6. SIMULANNEALBND  
+rng(1);                                 
+% Problem data
+x0 = [300, 300, 200, 200];      % starting point (feasible)
+lb = [0, 0, 0, 0];              % lower bounds
+ub = [600, 600, 400, 400];      % upper bounds (no route can carry more than the supply)
+% Linear inequality constraints  A*x <= b  (route capacities)
+A = [1 0 1 0;                   % Route 1: x1 + x3 <= 700
+     0 1 0 1];                  % Route 2: x2 + x4 <= 500
+b = [700; 500];
+% Linear equality constraints  Aeq*x = beq  (supply requirements)
+Aeq = [1 1 0 0;                 % x1 + x2 = 600
+       0 0 1 1];                % x3 + x4 = 400
+beq = [600; 400];
+fun = @(x) 4*x(1) + 6*x(2) + 5*x(3) + 3*x(4);
+% Constraints are added to the objective as a penalty (weight 1e3)
+objective = @(x) fun(x) + 1e3*(sum(max(A*x(:)-b,0)) + sum(abs(Aeq*x(:)-beq)));
+nvars = 4;
+% Optimization settings
+options = optimoptions('simulannealbnd','Display','off');
+% Run optimization
+tic;
+[xopt,fval] = simulannealbnd(objective,x0,lb,ub,options);
+t_simulannealbnd = toc;
+% Display results
+fval = fun(xopt);          % true objective, without the penalty
+fprintf('--- simulannealbnd ---\n');
+fprintf('A via Route 1 = %.4f t\n',xopt(1));
+fprintf('A via Route 2 = %.4f t\n',xopt(2));
+fprintf('B via Route 1 = %.4f t\n',xopt(3));
+fprintf('B via Route 2 = %.4f t\n',xopt(4));
+fprintf('Route 1 load = %.4f t,  Route 2 load = %.4f t\n',xopt(1)+xopt(3),xopt(2)+xopt(4));
+fprintf('Minimum transport cost = $%.2f\n',fval);
+fprintf('Max constraint violation = %.2e\n',max([0; A*xopt(:)-b; abs(Aeq*xopt(:)-beq)]));
+fprintf('Time = %.4f s\n\n',t_simulannealbnd);
+res.simulannealbnd = fval;
+
+% 7. COMPARISON GRAPH OF COMPUTATION TIME
+names = {'fmincon','ga','particleswarm','patternsearch', ...
+         'surrogateopt','simulannealbnd'};
+times = [t_fmincon, t_ga, t_particleswarm, t_patternsearch, ...
+         t_surrogateopt, t_simulannealbnd];
+values = [res.fmincon, res.ga, res.particleswarm, res.patternsearch, ...
+          res.surrogateopt, res.simulannealbnd];
+
+fprintf('Known exact optimum (for checking) = $3600 at A->R1 = 600 t, B->R2 = 400 t\n\n');
+T = table(names', times', values', ...
+    'VariableNames',{'Solver','Time_s','Cost_USD'});
+disp(T);
+
+figure;
+b = bar(times,0.6);
+b.FaceColor = [0.2 0.45 0.75];
+set(gca,'XTick',1:numel(names),'XTickLabel',names,'XTickLabelRotation',30);
+ylabel('Computation time (s)');
+title('Haulage routes: time taken by each solver');
+set(gca,'YScale','log');       
+grid on;
+for i = 1:numel(times)
+    text(i,times(i)*1.15,sprintf('%.3f s',times(i)), ...
+        'HorizontalAlignment','center');
+end

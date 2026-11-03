@@ -1,0 +1,237 @@
+% ORE BLENDING 
+%A mining company operates two ore sources. Source A contians high grade
+% ore with with copper content of 2.5 percent while Source B contains low
+% grade ore with a copper content of 0.8 percent. the company wants to
+% blend the two ore sources to maximize its revenue contribution. the
+% contribution from A is estimated at $45 per tonne while that from source
+% B is $25 per tonne. the processing pant requires a minimum of 100 tonnes
+% and can process a maximum of 1200 tonnes per day. the company can supply
+% at most 500 tonnes from A and 900 tonnes from B. the final blended ore
+% must contain at least 1.5 percent coppper. determine quantites of ore to
+% obtain from each source to maximize the total contribution while
+% satisfying all the constraints.
+
+% Variables: x(1) = tonnes from Source A (2.5% Cu, 
+%            x(2) = tonnes from Source B (0.8% Cu, 
+% Maximize 45*xA + 25*xB   ->  solvers minimize, so the objective is negated
+% Constraints:  1000 <= xA + xB <= 1200     (plant minimum / maximum)
+%               0 <= xA <= 500,  0 <= xB <= 900   (supply limits)
+%               (2.5xA + 0.8xB)/(xA + xB) >= 1.5  ->  -xA + 0.7xB <= 0  
+
+clear; clc; close all;
+
+% 1. FMINCON  
+% Problem data
+x0 = [450, 550];                % starting point 
+lb = [0, 0];                    % lower bounds
+ub = [500, 900];                % upper bounds = supply limits
+% Linear inequality constraints  A*x <= b
+A = [ 1    1;                   %  xA + xB <= 1200
+     -1   -1;                   %  xA + xB >= 1000
+     -1  0.7];                  %  copper grade >= 1.5%
+b = [1200; -1000; 0];
+Aeq = []; beq = [];             % no equality constraints
+fun = @(x) -(45*x(1) + 25*x(2));
+objective = fun;
+nvars = 2;
+% Optimization settings
+options = optimoptions('fmincon','Display','off','Algorithm','sqp');
+% Run optimization
+tic;
+[xopt,fval] = fmincon(objective,x0,A,b,Aeq,beq,lb,ub,[],options);
+t_fmincon = toc;
+% Display results
+fprintf('--- fmincon ---\n');
+fprintf('Ore from Source A = %.4f t\n',xopt(1));
+fprintf('Ore from Source B = %.4f t\n',xopt(2));
+fprintf('Total ore = %.4f t\n',sum(xopt));
+fprintf('Copper grade = %.4f %%\n',100*(2.5*xopt(1)+0.8*xopt(2))/sum(xopt));
+fprintf('Maximum contribution = $%.2f\n',-fval);
+fprintf('Time = %.4f s\n\n',t_fmincon);
+res.fmincon = -fval;
+
+% 2. GA 
+rng(1);                                 
+% Problem data
+x0 = [450, 550];                % starting point 
+lb = [0, 0];                    % lower bounds
+ub = [500, 900];                % upper bounds = supply limits
+% Linear inequality constraints  A*x <= b
+A = [ 1    1;                   %  xA + xB <= 1200
+     -1   -1;                   %  xA + xB >= 1000
+     -1  0.7];                  %  copper grade >= 1.5%
+b = [1200; -1000; 0];
+Aeq = []; beq = [];             % no equality constraints
+fun = @(x) -(45*x(1) + 25*x(2));
+objective = fun;
+nvars = 2;
+% Optimization settings
+options = optimoptions('ga','Display','off');
+% Run optimization
+tic;
+[xopt,fval] = ga(objective,nvars,A,b,Aeq,beq,lb,ub,[],options);
+t_ga = toc;
+% Display results
+fprintf('--- ga ---\n');
+fprintf('Ore from Source A = %.4f t\n',xopt(1));
+fprintf('Ore from Source B = %.4f t\n',xopt(2));
+fprintf('Total ore = %.4f t\n',sum(xopt));
+fprintf('Copper grade = %.4f %%\n',100*(2.5*xopt(1)+0.8*xopt(2))/sum(xopt));
+fprintf('Maximum contribution = $%.2f\n',-fval);
+fprintf('Time = %.4f s\n\n',t_ga);
+res.ga = -fval;
+
+% 3. PARTICLESWARM  
+rng(1);                                  
+% Problem data
+x0 = [450, 550];                % starting point 
+lb = [0, 0];                    % lower bounds
+ub = [500, 900];                % upper bounds = supply limits
+% Linear inequality constraints  A*x <= b
+A = [ 1    1;                   %  xA + xB <= 1200
+     -1   -1;                   %  xA + xB >= 1000
+     -1  0.7];                  %  copper grade >= 1.5%
+b = [1200; -1000; 0];
+Aeq = []; beq = [];             % no equality constraints
+fun = @(x) -(45*x(1) + 25*x(2));
+% Constraints are added to the objective as a penalty (weight 1e3)
+objective = @(x) fun(x) + 1e3*(sum(max(A*x(:)-b,0)));
+nvars = 2;
+% Optimization settings
+options = optimoptions('particleswarm','Display','off');
+% Run optimization
+tic;
+[xopt,fval] = particleswarm(objective,nvars,lb,ub,options);
+t_particleswarm = toc;
+% Display results
+fval = fun(xopt);          % true objective, without the penalty
+fprintf('--- particleswarm ---\n');
+fprintf('Ore from Source A = %.4f t\n',xopt(1));
+fprintf('Ore from Source B = %.4f t\n',xopt(2));
+fprintf('Total ore = %.4f t\n',sum(xopt));
+fprintf('Copper grade = %.4f %%\n',100*(2.5*xopt(1)+0.8*xopt(2))/sum(xopt));
+fprintf('Maximum contribution = $%.2f\n',-fval);
+fprintf('Max constraint violation = %.2e\n',max([0; A*xopt(:)-b]));
+fprintf('Time = %.4f s\n\n',t_particleswarm);
+res.particleswarm = -fval;
+
+% 4. PATTERNSEARCH  
+% Problem data
+x0 = [450, 550];                % starting point 
+lb = [0, 0];                    % lower bounds
+ub = [500, 900];                % upper bounds = supply limits
+% Linear inequality constraints  A*x <= b
+A = [ 1    1;                   %  xA + xB <= 1200
+     -1   -1;                   %  xA + xB >= 1000
+     -1  0.7];                  %  copper grade >= 1.5%
+b = [1200; -1000; 0];
+Aeq = []; beq = [];             % no equality constraints
+fun = @(x) -(45*x(1) + 25*x(2));
+objective = fun;
+nvars = 2;
+% Optimization settings
+options = optimoptions('patternsearch','Display','off');
+% Run optimization
+tic;
+[xopt,fval] = patternsearch(objective,x0,A,b,Aeq,beq,lb,ub,[],options);
+t_patternsearch = toc;
+% Display results
+fprintf('--- patternsearch ---\n');
+fprintf('Ore from Source A = %.4f t\n',xopt(1));
+fprintf('Ore from Source B = %.4f t\n',xopt(2));
+fprintf('Total ore = %.4f t\n',sum(xopt));
+fprintf('Copper grade = %.4f %%\n',100*(2.5*xopt(1)+0.8*xopt(2))/sum(xopt));
+fprintf('Maximum contribution = $%.2f\n',-fval);
+fprintf('Time = %.4f s\n\n',t_patternsearch);
+res.patternsearch = -fval;
+
+% 5. SURROGATEOPT  
+rng(1);                                 
+% Problem data
+x0 = [450, 550];                % starting point 
+lb = [0, 0];                    % lower bounds
+ub = [500, 900];                % upper bounds = supply limits
+% Linear inequality constraints  A*x <= b
+A = [ 1    1;                   %  xA + xB <= 1200
+     -1   -1;                   %  xA + xB >= 1000
+     -1  0.7];                  %  copper grade >= 1.5%
+b = [1200; -1000; 0];
+Aeq = []; beq = [];             % no equality constraints
+fun = @(x) -(45*x(1) + 25*x(2));
+objective = fun;
+nvars = 2;
+% Optimization settings
+options = optimoptions('surrogateopt','Display','off','PlotFcn',[]);
+% Run optimization
+tic;
+[xopt,fval] = surrogateopt(objective,lb,ub,[],A,b,Aeq,beq,options);
+t_surrogateopt = toc;
+% Display results
+fprintf('--- surrogateopt ---\n');
+fprintf('Ore from Source A = %.4f t\n',xopt(1));
+fprintf('Ore from Source B = %.4f t\n',xopt(2));
+fprintf('Total ore = %.4f t\n',sum(xopt));
+fprintf('Copper grade = %.4f %%\n',100*(2.5*xopt(1)+0.8*xopt(2))/sum(xopt));
+fprintf('Maximum contribution = $%.2f\n',-fval);
+fprintf('Time = %.4f s\n\n',t_surrogateopt);
+res.surrogateopt = -fval;
+
+% 6. SIMULANNEALBND 
+rng(1);                                  
+% Problem data
+x0 = [450, 550];                % starting point 
+lb = [0, 0];                    % lower bounds
+ub = [500, 900];                % upper bounds = supply limits
+% Linear inequality constraints  A*x <= b
+A = [ 1    1;                   %  xA + xB <= 1200
+     -1   -1;                   %  xA + xB >= 1000
+     -1  0.7];                  %  copper grade >= 1.5%
+b = [1200; -1000; 0];
+Aeq = []; beq = [];             % no equality constraints
+fun = @(x) -(45*x(1) + 25*x(2));
+% Constraints are added to the objective as a penalty (weight 1e3)
+objective = @(x) fun(x) + 1e3*(sum(max(A*x(:)-b,0)));
+nvars = 2;
+% Optimization settings
+options = optimoptions('simulannealbnd','Display','off');
+% Run optimization
+tic;
+[xopt,fval] = simulannealbnd(objective,x0,lb,ub,options);
+t_simulannealbnd = toc;
+% Display results
+fval = fun(xopt);          % true objective, without the penalty
+fprintf('--- simulannealbnd ---\n');
+fprintf('Ore from Source A = %.4f t\n',xopt(1));
+fprintf('Ore from Source B = %.4f t\n',xopt(2));
+fprintf('Total ore = %.4f t\n',sum(xopt));
+fprintf('Copper grade = %.4f %%\n',100*(2.5*xopt(1)+0.8*xopt(2))/sum(xopt));
+fprintf('Maximum contribution = $%.2f\n',-fval);
+fprintf('Max constraint violation = %.2e\n',max([0; A*xopt(:)-b]));
+fprintf('Time = %.4f s\n\n',t_simulannealbnd);
+res.simulannealbnd = -fval;
+
+% 7. COMPARISON GRAPH OF COMPUTATION TIME
+names = {'fmincon','ga','particleswarm','patternsearch', ...
+         'surrogateopt','simulannealbnd'};
+times = [t_fmincon, t_ga, t_particleswarm, t_patternsearch, ...
+         t_surrogateopt, t_simulannealbnd];
+values = [res.fmincon, res.ga, res.particleswarm, res.patternsearch, ...
+          res.surrogateopt, res.simulannealbnd];
+
+fprintf('Known exact optimum (for checking) = $40000 at A = 500 t, B = 700 t\n\n');
+T = table(names', times', values', ...
+    'VariableNames',{'Solver','Time_s','Contribution_USD'});
+disp(T);
+
+figure;
+b = bar(times,0.6);
+b.FaceColor = [0.2 0.45 0.75];
+set(gca,'XTick',1:numel(names),'XTickLabel',names,'XTickLabelRotation',30);
+ylabel('Computation time (s)');
+title('Ore blending: time taken by each solver');
+set(gca,'YScale','log');       
+grid on;
+for i = 1:numel(times)
+    text(i,times(i)*1.15,sprintf('%.3f s',times(i)), ...
+        'HorizontalAlignment','center');
+end
